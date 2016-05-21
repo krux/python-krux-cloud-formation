@@ -34,6 +34,9 @@ class Application(krux_boto.cli.Application):
         add_troposphere_cli_arguments(parser, include_boto_arguments=False)
 
     def run(self):
+        # GOTCHA: Purposely left blank. Troposphere does not provide a solid parser of the Cloud Formation template.
+        # This makes getter rather difficult. Without creating a test stack that is perfectly constant and lots of code to
+        # regenerate that stack, I cannot make a no-op call. So leaving this method empty for now.
         pass
 
 
