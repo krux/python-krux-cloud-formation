@@ -101,6 +101,11 @@ class Troposphere(object):
         logger=None,
         stats=None,
     ):
+        """
+        :param boto: :py:class:`krux_boto.boto.Boto3` Boto3 object used to connect to Cloud Formation
+        :param logger: :py:class:`logging.Logger` Logger, recommended to be obtained using krux.cli.Application
+        :param stats: :py:class:`kruxstatsd.StatsClient` Stats, recommended to be obtained using krux.cli.Application
+        """
         # Private variables, not to be used outside this module
         self._name = NAME
         self._logger = logger or get_logger(self._name)
@@ -113,6 +118,15 @@ class Troposphere(object):
         self.template = troposphere.Template()
 
     def _is_stack_exists(self, stack_name):
+        """
+        Check if the given Cloud Formation stack exists
+
+        GOTCHA: There is no simple way to check the existence of a stack.
+        The template for the stack is fetched and if an expected exception occur (Unable to find stack),
+        then the stack is deemed not existing.
+
+        :param stack_name: :py:class:`str` Name of the stack to check
+        """
         try:
             # See if we can get a template for this
             self._cf.get_template(StackName=stack_name)
@@ -127,6 +141,14 @@ class Troposphere(object):
             raise
 
     def save(self, stack_name):
+        """
+        Saves the template to the given Cloud Formation stack.
+
+        The method internally checks whether the stack exists and either creates or updates the stack
+        with the template in this object.
+
+        :param stack_name: :py:class:`str` Name of the stack to check
+        """
         if self._is_stack_exists(stack_name):
             try:
                 self._cf.update_stack(
