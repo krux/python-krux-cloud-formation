@@ -3,6 +3,7 @@
 
 # Krux-boto library which this is built on
 krux-boto==1.0.3
+krux-s3==0.0.1
 
 ### Library to create cloudformation templates
 ### Version is latest at time of writing
