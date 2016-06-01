@@ -31,6 +31,8 @@ from krux_s3.s3 import S3, add_s3_cli_arguments
 
 
 NAME = 'krux-troposphere'
+TEMP_S3_BUCKET = 'krux-temp'
+TEMP_S3_REGION = 'us-east-1'
 
 
 def get_troposphere(args=None, logger=None, stats=None):
@@ -70,7 +72,9 @@ def get_troposphere(args=None, logger=None, stats=None):
         log_level=args.boto_log_level,
         access_key=args.boto_access_key,
         secret_key=args.boto_secret_key,
-        region='us-east-1',
+        # This boto is for S3 upload and is using a constant region,
+        # matching the TEMP_S3_BUCKET
+        region=TEMP_S3_REGION,
         logger=logger,
         stats=stats,
     )
@@ -112,8 +116,7 @@ class Troposphere(object):
 
     STACK_NOT_EXIST_ERROR_MSG = 'Stack with id {stack_name} does not exist'
     NO_UPDATE_ERROR_MSG = 'No updates are to be performed.'
-    TEMP_S3_BUCKET = 'krux-temp'
-    _S3_KEY_TEMPLATE = '{stack_name}-{datestamp}'
+    _S3_KEY_TEMPLATE = '{name}/{stack_name}-{datestamp}'
     _DATESTAMP_TEMPLATE = '{year}{month}{date}-{hour}{minute}{second}'
     # S3 link expires after an hour
     _S3_URL_EXPIRY = 3600
@@ -186,8 +189,12 @@ class Troposphere(object):
 
         :param stack_name: :py:class:`str` Name of the stack to check
         """
-        key = self._S3_KEY_TEMPLATE.format(stack_name=stack_name, datestamp=Troposphere._get_timestamp(datetime.utcnow()))
-        s3_file = self._s3.create_key(bucket_name=self.TEMP_S3_BUCKET, key=key, str_content=self.template.to_json())
+        key = self._S3_KEY_TEMPLATE.format(
+            name=self._name,
+            stack_name=stack_name,
+            datestamp=Troposphere._get_timestamp(datetime.utcnow()),
+        )
+        s3_file = self._s3.create_key(bucket_name=TEMP_S3_BUCKET, key=key, str_content=self.template.to_json())
 
         if self._is_stack_exists(stack_name):
             try:
