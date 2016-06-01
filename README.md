@@ -1,6 +1,6 @@
 # krux-troposphere
 
-Krux Python class built on top of `krux-boto` for interacting with `Troposphere` and `Cloud Formation`.
+Krux Python class built on top of `krux-boto` for interacting with [`Troposphere`](https://github.com/cloudtools/troposphere) and `Cloud Formation`.
 
 ## Warning
 
