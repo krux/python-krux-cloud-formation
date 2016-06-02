@@ -40,7 +40,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'krux-cloud-formation-test = krux_troposphere.cli:main',
+            'krux-cloud-formation-test = krux_cloud_formation.cli:main',
         ],
     },
     test_suite='test',

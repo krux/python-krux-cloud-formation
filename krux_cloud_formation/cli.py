@@ -15,23 +15,23 @@ import os
 #
 
 from krux.cli import get_group
-import krux_boto.cli
-from krux_troposphere.troposphere import add_troposphere_cli_arguments, get_troposphere, NAME
+import krux_s3.cli
+from krux_cloud_formation.cloud_formation import add_cloud_formation_cli_arguments, get_cloud_formation, NAME
 
 
-class Application(krux_boto.cli.Application):
+class Application(krux_s3.cli.Application):
 
     def __init__(self, name=NAME):
         # Call to the superclass to bootstrap.
         super(Application, self).__init__(name=name)
 
-        self.troposphere = get_troposphere(self.args, self.logger, self.stats)
+        self.cloud_formation = get_cloud_formation(self.args, self.logger, self.stats)
 
     def add_cli_arguments(self, parser):
         # Call to the superclass
         super(Application, self).add_cli_arguments(parser)
 
-        add_troposphere_cli_arguments(parser, include_boto_arguments=False)
+        add_cloud_formation_cli_arguments(parser, include_boto_arguments=False)
 
     def run(self):
         # GOTCHA: Purposely left blank. Troposphere does not provide a solid parser of the Cloud Formation template.

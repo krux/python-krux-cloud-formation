@@ -1,20 +1,20 @@
-# krux-troposphere
+# krux-cloud-formation
 
 Krux Python class built on top of `krux-boto` for interacting with [`Troposphere`](https://github.com/cloudtools/troposphere) and `Cloud Formation`.
 
 ## Warning
 
-In the current version, `krux_troposphere.troposphere.Troposphere` is only compatible with `krux_boto.boto.Boto3` object. Passing other objects, such as `krux_boto.boto.Boto`, will cause an exception.
+In the current version, `krux_cloud_formation.cloud_formation.CloudFormation` is only compatible with `krux_boto.boto.Boto3` object. Passing other objects, such as `krux_boto.boto.Boto`, will cause an exception.
 
 ## Application quick start
 
-The most common use case is to build a CLI script using `krux_boto.cli.Application`.
+The most common use case is to build a CLI script using `krux_s3.cli.Application`.
 Here's how to do that:
 
 ```python
 
-from krux_boto.cli import Application
-from krux_troposphere.troposphere import Troposphere
+from krux_s3.cli import Application
+from krux_cloud_formation.cloud_formation import CloudFormation
 
 def main():
     # The name must be unique to the organization. The object
@@ -22,11 +22,11 @@ def main():
     # all that functionality as well.
     app = Application(name='krux-my-boto-script')
 
-    troposphere = Troposphere(boto=app.boto3)
+    cloud_formation = CloudFormation(boto=app.boto3, s3=app.s3)
 
-    # Do magic with troposphere.template
+    # Do magic with cloud_formation.template
 
-    troposphere.save()
+    cloud_formation.save()
 
 ### Run the application stand alone
 if __name__ == '__main__':
