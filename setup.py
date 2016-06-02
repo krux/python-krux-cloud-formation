@@ -40,6 +40,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
+            'krux-troposphere-test = krux_troposphere.cli:main',
         ],
     },
     test_suite='test',
