@@ -17,7 +17,7 @@ from setuptools import setup, find_packages
 VERSION = '0.0.1'
 
 # URL to the repository on Github.
-REPO_URL = ''
+REPO_URL = 'https://github.com/krux/python-krux-cloud-formation'
 # Github will generate a tarball as long as you tag your releases, so don't
 # forget to tag!
 DOWNLOAD_URL = ''.join((REPO_URL, '/tarball/release/', VERSION))
