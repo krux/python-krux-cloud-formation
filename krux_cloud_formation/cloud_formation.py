@@ -30,28 +30,28 @@ from krux_boto.boto import Boto, Boto3, add_boto_cli_arguments
 from krux_s3.s3 import S3, add_s3_cli_arguments
 
 
-NAME = 'krux-troposphere'
+NAME = 'krux-cloud-formation'
 TEMP_S3_BUCKET = 'krux-temp'
 TEMP_S3_REGION = 'us-east-1'
 
 
-def get_troposphere(args=None, logger=None, stats=None):
+def get_cloud_formation(args=None, logger=None, stats=None):
     """
-    Return a usable Troposphere object without creating a class around it.
+    Return a usable CloudFormation object without creating a class around it.
 
     In the context of a krux.cli (or similar) interface the 'args', 'logger'
     and 'stats' objects should already be present. If you don't have them,
-    however, we'll attempt to provide usable ones for the Troposphere setup.
+    however, we'll attempt to provide usable ones for the CloudFormation setup.
 
-    (If you omit the add_troposphere_cli_arguments() call during other cli setup,
-    the Boto object will still work, but its cli options won't show up in
+    (If you omit the add_cloud_formation_cli_arguments() call during other cli setup,
+    the CloudFormation object will still work, but its cli options won't show up in
     --help output)
 
     (This also handles instantiating a Boto3 object on its own.)
     """
     if not args:
         parser = get_parser()
-        add_troposphere_cli_arguments(parser)
+        add_cloud_formation_cli_arguments(parser)
         args = parser.parse_args()
 
     if not logger:
@@ -83,7 +83,7 @@ def get_troposphere(args=None, logger=None, stats=None):
         logger=logger,
         stats=stats,
     )
-    return Troposphere(
+    return CloudFormation(
         boto=boto3,
         s3=s3,
         logger=logger,
@@ -91,9 +91,9 @@ def get_troposphere(args=None, logger=None, stats=None):
     )
 
 
-def add_troposphere_cli_arguments(parser, include_boto_arguments=True):
+def add_cloud_formation_cli_arguments(parser, include_boto_arguments=True):
     """
-    Utility function for adding Troposphere specific CLI arguments.
+    Utility function for adding CloudFormation specific CLI arguments.
     """
     if include_boto_arguments:
         # GOTCHA: Since many modules use krux_boto, the krux_boto's CLI arguments can be included twice,
@@ -108,7 +108,7 @@ def add_troposphere_cli_arguments(parser, include_boto_arguments=True):
     group = get_group(parser, NAME)
 
 
-class Troposphere(object):
+class CloudFormation(object):
     """
     A manager to handle all Troposphere / Cloud Formation related functions.
     Each instance is locked to a connection to a designated region (self.boto.cli_region).
@@ -139,7 +139,7 @@ class Troposphere(object):
         self._stats = stats or get_stats(prefix=self._name)
 
         if not isinstance(boto, Boto3):
-            raise NotImplementedError('Currently krux_troposphere.troposphere.Troposphere only supports krux_boto.boto.Boto3')
+            raise NotImplementedError('Currently krux_cloud_formation.cloud_formation.CloudFormation only supports krux_boto.boto.Boto3')
 
         self._s3 = s3
 
@@ -171,7 +171,7 @@ class Troposphere(object):
 
     @staticmethod
     def _get_timestamp(datetime):
-        return Troposphere._DATESTAMP_TEMPLATE.format(
+        return CloudFormation._DATESTAMP_TEMPLATE.format(
             year=datetime.year,
             month=format(datetime.month, '02'),
             date=format(datetime.day, '02'),
@@ -192,7 +192,7 @@ class Troposphere(object):
         key = self._S3_KEY_TEMPLATE.format(
             name=self._name,
             stack_name=stack_name,
-            datestamp=Troposphere._get_timestamp(datetime.utcnow()),
+            datestamp=CloudFormation._get_timestamp(datetime.utcnow()),
         )
         s3_file = self._s3.create_key(bucket_name=TEMP_S3_BUCKET, key=key, str_content=self.template.to_json())
 

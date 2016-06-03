@@ -24,7 +24,7 @@ from botocore.exceptions import ClientError
 #
 
 import krux_boto.boto
-import krux_troposphere.troposphere
+import krux_cloud_formation.cloud_formation
 
 
 class TroposphereTest(unittest.TestCase):
@@ -69,8 +69,8 @@ class TroposphereTest(unittest.TestCase):
         )
 
         # Mock isinstance() so that it will accept MagicMock object
-        with patch('krux_troposphere.troposphere.isinstance', MagicMock(return_value=True)):
-            self._troposphere = krux_troposphere.troposphere.Troposphere(
+        with patch('krux_cloud_formation.cloud_formation.isinstance', MagicMock(return_value=True)):
+            self._cfn = krux_cloud_formation.cloud_formation.CloudFormation(
                 boto=boto,
                 s3=self._s3,
             )
@@ -81,7 +81,7 @@ class TroposphereTest(unittest.TestCase):
         """
         self._cf.get_template.return_value = True
 
-        self.assertTrue(self._troposphere._is_stack_exists(self.TEST_STACK_NAME))
+        self.assertTrue(self._cfn._is_stack_exists(self.TEST_STACK_NAME))
         self._cf.get_template.assert_called_once_with(StackName=self.TEST_STACK_NAME)
 
     def test_is_stack_exists_failure(self):
@@ -92,7 +92,7 @@ class TroposphereTest(unittest.TestCase):
         resp['Error']['Message'] = self.STACK_NOT_EXIST_ERROR_MSG
         self._cf.get_template.side_effect = ClientError(resp, '')
 
-        self.assertFalse(self._troposphere._is_stack_exists(self.TEST_STACK_NAME))
+        self.assertFalse(self._cfn._is_stack_exists(self.TEST_STACK_NAME))
         self._cf.get_template.assert_called_once_with(StackName=self.TEST_STACK_NAME)
 
     def test_is_stack_exists_boto_error(self):
@@ -104,7 +104,7 @@ class TroposphereTest(unittest.TestCase):
         self._cf.get_template.side_effect = ClientError(resp, '')
 
         with self.assertRaises(ClientError):
-            self._troposphere._is_stack_exists(self.TEST_STACK_NAME)
+            self._cfn._is_stack_exists(self.TEST_STACK_NAME)
             self._cf.get_template.assert_called_once_with(StackName=self.TEST_STACK_NAME)
 
     def test_is_stack_exists_std_error(self):
@@ -114,7 +114,7 @@ class TroposphereTest(unittest.TestCase):
         self._cf.get_template.side_effect = StandardError()
 
         with self.assertRaises(StandardError):
-            self._troposphere._is_stack_exists(self.TEST_STACK_NAME)
+            self._cfn._is_stack_exists(self.TEST_STACK_NAME)
             self._cf.get_template.assert_called_once_with(StackName=self.TEST_STACK_NAME)
 
     def test_save_create(self):
@@ -123,18 +123,18 @@ class TroposphereTest(unittest.TestCase):
         """
         self._cf.create_stack.return_value = True
 
-        with patch('krux_troposphere.troposphere.Troposphere._get_timestamp', MagicMock(return_value='20160101-000000')):
-            with patch('krux_troposphere.troposphere.Troposphere._is_stack_exists', MagicMock(return_value=False)):
-                self._troposphere.save(self.TEST_STACK_NAME)
+        with patch('krux_cloud_formation.cloud_formation.CloudFormation._get_timestamp', MagicMock(return_value='20160101-000000')):
+            with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=False)):
+                self._cfn.save(self.TEST_STACK_NAME)
                 key = self.S3_KEY_NAME_TEMPLATE.format(
-                    name=self._troposphere._name,
+                    name=self._cfn._name,
                     stack_name=self.TEST_STACK_NAME,
                     datestamp=self.FAKE_DATESTAMP
                 )
                 self._s3.create_key.assert_called_once_with(
                     bucket_name=self.S3_BUCKET,
                     key=key,
-                    str_content=self._troposphere.template.to_json()
+                    str_content=self._cfn.template.to_json()
                 )
                 self._cf.create_stack.assert_called_once_with(
                     StackName=self.TEST_STACK_NAME,
@@ -147,18 +147,18 @@ class TroposphereTest(unittest.TestCase):
         """
         self._cf.update_stack.return_value = True
 
-        with patch('krux_troposphere.troposphere.Troposphere._get_timestamp', MagicMock(return_value='20160101-000000')):
-            with patch('krux_troposphere.troposphere.Troposphere._is_stack_exists', MagicMock(return_value=True)):
-                self._troposphere.save(self.TEST_STACK_NAME)
+        with patch('krux_cloud_formation.cloud_formation.CloudFormation._get_timestamp', MagicMock(return_value='20160101-000000')):
+            with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=True)):
+                self._cfn.save(self.TEST_STACK_NAME)
                 key = self.S3_KEY_NAME_TEMPLATE.format(
-                    name=self._troposphere._name,
+                    name=self._cfn._name,
                     stack_name=self.TEST_STACK_NAME,
                     datestamp=self.FAKE_DATESTAMP
                 )
                 self._s3.create_key.assert_called_once_with(
                     bucket_name=self.S3_BUCKET,
                     key=key,
-                    str_content=self._troposphere.template.to_json()
+                    str_content=self._cfn.template.to_json()
                 )
                 self._cf.update_stack.assert_called_once_with(
                     StackName=self.TEST_STACK_NAME,
@@ -175,8 +175,8 @@ class TroposphereTest(unittest.TestCase):
 
         # GOTCHA: S3 portion of the code is already covered by test_save_create() and test_save_update_success()
         # Skip through that part.
-        with patch('krux_troposphere.troposphere.Troposphere._is_stack_exists', MagicMock(return_value=True)):
-            self._troposphere.save(self.TEST_STACK_NAME)
+        with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=True)):
+            self._cfn.save(self.TEST_STACK_NAME)
             self._cf.update_stack.assert_called_once_with(
                 StackName=self.TEST_STACK_NAME,
                 TemplateURL=self.FAKE_URL
@@ -192,9 +192,9 @@ class TroposphereTest(unittest.TestCase):
 
         # GOTCHA: S3 portion of the code is already covered by test_save_create() and test_save_update_success()
         # Skip through that part.
-        with patch('krux_troposphere.troposphere.Troposphere._is_stack_exists', MagicMock(return_value=True)):
+        with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=True)):
             with self.assertRaises(ClientError):
-                self._troposphere.save(self.TEST_STACK_NAME)
+                self._cfn.save(self.TEST_STACK_NAME)
                 self._cf.update_stack.assert_called_once_with(
                     StackName=self.TEST_STACK_NAME,
                     TemplateURL=self.FAKE_URL
@@ -208,9 +208,9 @@ class TroposphereTest(unittest.TestCase):
 
         # GOTCHA: S3 portion of the code is already covered by test_save_create() and test_save_update_success()
         # Skip through that part.
-        with patch('krux_troposphere.troposphere.Troposphere._is_stack_exists', MagicMock(return_value=True)):
+        with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=True)):
             with self.assertRaises(StandardError):
-                self._troposphere.save(self.TEST_STACK_NAME)
+                self._cfn.save(self.TEST_STACK_NAME)
                 self._cf.update_stack.assert_called_once_with(
                     StackName=self.TEST_STACK_NAME,
                     TemplateURL=self.FAKE_URL

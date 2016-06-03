@@ -4,7 +4,7 @@
 #
 
 """
-Package setup for krux-troposphere
+Package setup for krux-cloud-formation
 """
 
 #
@@ -24,7 +24,7 @@ DOWNLOAD_URL = ''.join((REPO_URL, '/tarball/release/', VERSION))
 
 
 setup(
-    name='krux-troposphere',
+    name='krux-cloud-formation',
     version=VERSION,
     author='Peter Han',
     author_email='phan@krux.com',
@@ -40,7 +40,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'krux-troposphere-test = krux_troposphere.cli:main',
+            'krux-cloud-formation-test = krux_cloud_formation.cli:main',
         ],
     },
     test_suite='test',
