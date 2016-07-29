@@ -127,15 +127,14 @@ class CloudFormation(object):
     Each instance is locked to a connection to a designated region (self.boto.cli_region).
     """
 
-    STACK_NOT_EXIST_ERROR_MSG = 'Stack with id {stack_name} does not exist'
-    NO_UPDATE_ERROR_MSG = 'No updates are to be performed.'
     DEFAULT_S3_BUCKET = 'krux-temp'
     DEFAULT_S3_REGION = 'us-east-1'
 
-    _S3_KEY_TEMPLATE = '{name}/{stack_name}-{datestamp}'
-    _DATESTAMP_TEMPLATE = '{year}{month}{date}-{hour}{minute}{second}'
     # S3 link expires after an hour
     _S3_URL_EXPIRY = 3600
+    # Error messages to check
+    _STACK_NOT_EXIST_ERROR_MSG = 'Stack with id {stack_name} does not exist'
+    _NO_UPDATE_ERROR_MSG = 'No updates are to be performed.'
 
     def __init__(
         self,
@@ -180,25 +179,14 @@ class CloudFormation(object):
             # The template was successfully retrieved; the stack exists
             return True
         except botocore.exceptions.ClientError as err:
-            if self.STACK_NOT_EXIST_ERROR_MSG.format(stack_name=stack_name) == err.response.get('Error', {}).get('Message', ''):
+            if self._STACK_NOT_EXIST_ERROR_MSG.format(stack_name=stack_name) == err.response.get('Error', {}).get('Message', ''):
                 # The template was not retrieved; the stack does not exists
                 return False
 
             # Unknown error. Raise again.
             raise
 
-    @staticmethod
-    def _get_timestamp(datetime):
-        return CloudFormation._DATESTAMP_TEMPLATE.format(
-            year=datetime.year,
-            month=format(datetime.month, '02'),
-            date=format(datetime.day, '02'),
-            hour=format(datetime.hour, '02'),
-            minute=format(datetime.minute, '02'),
-            second=format(datetime.second, '02'),
-        )
-
-    def save(self, stack_name):
+    def save(self, stack_name, s3_key=None):
         """
         Saves the template to the given Cloud Formation stack.
 
@@ -206,12 +194,9 @@ class CloudFormation(object):
         with the template in this object.
 
         :param stack_name: :py:class:`str` Name of the stack to check
+        :param s3_key: :py:class:`str` Name of the s3 file to be used to upload the template. If set to None, stack_name is used.
         """
-        key = self._S3_KEY_TEMPLATE.format(
-            name=self._name,
-            stack_name=stack_name,
-            datestamp=CloudFormation._get_timestamp(datetime.utcnow()),
-        )
+        key = s3_key or stack_name
         s3_file = self._s3.create_key(bucket_name=self._bucket_name, key=key, str_content=self.template.to_json())
 
         if self._is_stack_exists(stack_name):
@@ -221,7 +206,7 @@ class CloudFormation(object):
                     TemplateURL=s3_file.generate_url(self._S3_URL_EXPIRY)
                 )
             except botocore.exceptions.ClientError as err:
-                if self.NO_UPDATE_ERROR_MSG == err.response.get('Error', {}).get('Message', ''):
+                if self._NO_UPDATE_ERROR_MSG == err.response.get('Error', {}).get('Message', ''):
                     # Nothing was updated. Ignore this error and move on.
                     return
 
