@@ -16,6 +16,7 @@ import unittest
 #
 
 import simplejson
+from troposphere import Template
 from mock import MagicMock, patch
 from botocore.exceptions import ClientError
 
@@ -23,6 +24,7 @@ from botocore.exceptions import ClientError
 # Internal libraries
 #
 
+from kruxstatsd import StatsClient
 import krux_boto.boto
 import krux_cloud_formation.cloud_formation
 
@@ -42,16 +44,17 @@ class TroposphereTest(unittest.TestCase):
     }
     STACK_NOT_EXIST_ERROR_MSG = 'Stack with id {stack_name} does not exist'.format(stack_name=TEST_STACK_NAME)
     NO_UPDATE_ERROR_MSG = 'No updates are to be performed.'
+    NO_BOTO3_ERROR_MSG = 'Currently krux_cloud_formation.cloud_formation.CloudFormation only supports krux_boto.boto.Boto3'
     FAKE_URL = 'http://www.example.com'
-    FAKE_DATESTAMP = '20160101-000000'
-    S3_KEY_NAME_TEMPLATE = '{name}/{stack_name}-{datestamp}'
     S3_URL_EXPIRY = 3600
-    S3_BUCKET = 'krux-temp'
+    S3_BUCKET = 'FAKE_BUCKET'
+    S3_FAKE_KEY = 'FAKE_KEY'
+    NAME = krux_cloud_formation.cloud_formation.NAME
 
     def setUp(self):
         # Set up a fake Boto3 object
         self._cf = MagicMock()
-        boto = MagicMock(
+        self._boto = MagicMock(
             client=MagicMock(
                 return_value=self._cf
             )
@@ -68,12 +71,59 @@ class TroposphereTest(unittest.TestCase):
             )
         )
 
+        self.mock_logger = MagicMock()
+        self.mock_stats = MagicMock()
+
         # Mock isinstance() so that it will accept MagicMock object
         with patch('krux_cloud_formation.cloud_formation.isinstance', MagicMock(return_value=True)):
             self._cfn = krux_cloud_formation.cloud_formation.CloudFormation(
-                boto=boto,
+                boto=self._boto,
                 s3=self._s3,
+                bucket_name=self.S3_BUCKET,
+                logger=self.mock_logger,
+                stats=self.mock_stats,
             )
+
+    def test_init(self):
+        """
+        __init__() properly creates all properties
+        """
+        self.assertEqual(self.NAME, self._cfn._name)
+        self.assertEqual(self.mock_logger, self._cfn._logger)
+        self.assertEqual(self.mock_stats, self._cfn._stats)
+
+        self.assertEqual(self._s3, self._cfn._s3)
+        self.assertEqual(self.S3_BUCKET, self._cfn._bucket_name)
+        self.assertEqual(self._cf, self._cfn._cf)
+        self.assertIsInstance(self._cfn.template, Template)
+
+    def test_init_passed(self):
+        """
+        __init__() properly creates logger and stats when not passed
+        """
+        # Mock isinstance() so that it will accept MagicMock object
+        with patch('krux_cloud_formation.cloud_formation.isinstance', MagicMock(return_value=True)):
+            cfn = krux_cloud_formation.cloud_formation.CloudFormation(
+                boto=self._boto,
+                s3=self._s3,
+                bucket_name=self.S3_BUCKET,
+            )
+
+        self.assertEqual(self.NAME, cfn._logger.name)
+        self.assertIsInstance(cfn._stats, StatsClient)
+
+    def test_init_non_boto3(self):
+        """
+        __init__() properly errors out when krux.boto3 is not passed
+        """
+        with self.assertRaises(NotImplementedError) as e:
+            krux_cloud_formation.cloud_formation.CloudFormation(
+                boto=self._boto,
+                s3=self._s3,
+                bucket_name=self.S3_BUCKET,
+            )
+
+        self.assertEqual(self.NO_BOTO3_ERROR_MSG, str(e.exception))
 
     def test_is_stack_exists_success(self):
         """
@@ -117,29 +167,41 @@ class TroposphereTest(unittest.TestCase):
             self._cfn._is_stack_exists(self.TEST_STACK_NAME)
             self._cf.get_template.assert_called_once_with(StackName=self.TEST_STACK_NAME)
 
+    def test_save_create_with_key(self):
+        """
+        save() uses the given string as S3 file name correctly
+        """
+        self._cf.create_stack.return_value = True
+
+        with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=False)):
+            self._cfn.save(self.TEST_STACK_NAME, self.S3_FAKE_KEY)
+            self._s3.create_key.assert_called_once_with(
+                bucket_name=self.S3_BUCKET,
+                key=self.S3_FAKE_KEY,
+                str_content=self._cfn.template.to_json()
+            )
+            self._cf.create_stack.assert_called_once_with(
+                StackName=self.TEST_STACK_NAME,
+                TemplateURL=self.FAKE_URL
+            )
+
     def test_save_create(self):
         """
         save() detects a new stack and creates it properly
         """
         self._cf.create_stack.return_value = True
 
-        with patch('krux_cloud_formation.cloud_formation.CloudFormation._get_timestamp', MagicMock(return_value='20160101-000000')):
-            with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=False)):
-                self._cfn.save(self.TEST_STACK_NAME)
-                key = self.S3_KEY_NAME_TEMPLATE.format(
-                    name=self._cfn._name,
-                    stack_name=self.TEST_STACK_NAME,
-                    datestamp=self.FAKE_DATESTAMP
-                )
-                self._s3.create_key.assert_called_once_with(
-                    bucket_name=self.S3_BUCKET,
-                    key=key,
-                    str_content=self._cfn.template.to_json()
-                )
-                self._cf.create_stack.assert_called_once_with(
-                    StackName=self.TEST_STACK_NAME,
-                    TemplateURL=self.FAKE_URL
-                )
+        with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=False)):
+            self._cfn.save(self.TEST_STACK_NAME)
+            self._s3.create_key.assert_called_once_with(
+                bucket_name=self.S3_BUCKET,
+                key=self.TEST_STACK_NAME,
+                str_content=self._cfn.template.to_json()
+            )
+            self._cf.create_stack.assert_called_once_with(
+                StackName=self.TEST_STACK_NAME,
+                TemplateURL=self.FAKE_URL
+            )
 
     def test_save_update_success(self):
         """
@@ -147,23 +209,17 @@ class TroposphereTest(unittest.TestCase):
         """
         self._cf.update_stack.return_value = True
 
-        with patch('krux_cloud_formation.cloud_formation.CloudFormation._get_timestamp', MagicMock(return_value='20160101-000000')):
-            with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=True)):
-                self._cfn.save(self.TEST_STACK_NAME)
-                key = self.S3_KEY_NAME_TEMPLATE.format(
-                    name=self._cfn._name,
-                    stack_name=self.TEST_STACK_NAME,
-                    datestamp=self.FAKE_DATESTAMP
-                )
-                self._s3.create_key.assert_called_once_with(
-                    bucket_name=self.S3_BUCKET,
-                    key=key,
-                    str_content=self._cfn.template.to_json()
-                )
-                self._cf.update_stack.assert_called_once_with(
-                    StackName=self.TEST_STACK_NAME,
-                    TemplateURL=self.FAKE_URL
-                )
+        with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=True)):
+            self._cfn.save(self.TEST_STACK_NAME)
+            self._s3.create_key.assert_called_once_with(
+                bucket_name=self.S3_BUCKET,
+                key=self.TEST_STACK_NAME,
+                str_content=self._cfn.template.to_json()
+            )
+            self._cf.update_stack.assert_called_once_with(
+                StackName=self.TEST_STACK_NAME,
+                TemplateURL=self.FAKE_URL
+            )
 
     def test_save_update_no_update(self):
         """
