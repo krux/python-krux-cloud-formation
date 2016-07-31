@@ -72,7 +72,7 @@ def get_cloud_formation(args=None, logger=None, stats=None):
         secret_key=args.boto_secret_key,
         # This boto is for S3 upload and is using a constant region,
         # matching the TEMP_S3_BUCKET
-        region=args.bucket_region,
+        region=getattr(args, 'bucket_region', CloudFormation.DEFAULT_S3_REGION),
         logger=logger,
         stats=stats,
     )
@@ -81,16 +81,17 @@ def get_cloud_formation(args=None, logger=None, stats=None):
         logger=logger,
         stats=stats,
     )
+
     return CloudFormation(
         boto=boto3,
         s3=s3,
-        bucket_name=args.bucket_name,
+        bucket_name=getattr(args, 'bucket_name', CloudFormation.DEFAULT_S3_BUCKET),
         logger=logger,
         stats=stats,
     )
 
 
-def add_cloud_formation_cli_arguments(parser, include_boto_arguments=True):
+def add_cloud_formation_cli_arguments(parser, include_boto_arguments=True, include_bucket_arguments=True):
     """
     Utility function for adding CloudFormation specific CLI arguments.
     """
@@ -106,19 +107,21 @@ def add_cloud_formation_cli_arguments(parser, include_boto_arguments=True):
     # Add those specific to the application
     group = get_group(parser, NAME)
 
-    group.add_argument(
-        '--bucket-name',
-        type=str,
-        default=CloudFormation.DEFAULT_S3_BUCKET,
-        help='Name of the bucket to upload cloud formation template to (Default: %(default)s)'
-    )
+    if include_bucket_arguments:
+        # If you want to fix the S3 bucket used to upload templates, do not use these arguments
+        group.add_argument(
+            '--bucket-name',
+            type=str,
+            default=CloudFormation.DEFAULT_S3_BUCKET,
+            help='Name of the bucket to upload cloud formation template to (Default: %(default)s)'
+        )
 
-    group.add_argument(
-        '--bucket-region',
-        type=str,
-        default=CloudFormation.DEFAULT_S3_REGION,
-        help='Region of the bucket to upload cloud formation template to (Default: %(default)s)'
-    )
+        group.add_argument(
+            '--bucket-region',
+            type=str,
+            default=CloudFormation.DEFAULT_S3_REGION,
+            help='Region of the bucket to upload cloud formation template to (Default: %(default)s)'
+        )
 
 
 class CloudFormation(object):

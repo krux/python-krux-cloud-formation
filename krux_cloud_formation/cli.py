@@ -27,11 +27,15 @@ class Application(krux_s3.cli.Application):
 
         self.cloud_formation = get_cloud_formation(self.args, self.logger, self.stats)
 
-    def add_cli_arguments(self, parser):
+    def add_cli_arguments(self, parser, include_bucket_arguments=True):
         # Call to the superclass
         super(Application, self).add_cli_arguments(parser)
 
-        add_cloud_formation_cli_arguments(parser, include_boto_arguments=False)
+        add_cloud_formation_cli_arguments(
+            parser=parser,
+            include_boto_arguments=False,
+            include_bucket_arguments=include_bucket_arguments
+        )
 
     def run(self):
         # GOTCHA: Purposely left blank. Troposphere does not provide a solid parser of the Cloud Formation template.
