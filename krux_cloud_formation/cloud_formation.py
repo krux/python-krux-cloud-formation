@@ -31,8 +31,6 @@ from krux_s3.s3 import S3, add_s3_cli_arguments
 
 
 NAME = 'krux-cloud-formation'
-TEMP_S3_BUCKET = 'krux-temp'
-TEMP_S3_REGION = 'us-east-1'
 
 
 def get_cloud_formation(args=None, logger=None, stats=None):
@@ -74,7 +72,7 @@ def get_cloud_formation(args=None, logger=None, stats=None):
         secret_key=args.boto_secret_key,
         # This boto is for S3 upload and is using a constant region,
         # matching the TEMP_S3_BUCKET
-        region=TEMP_S3_REGION,
+        region=getattr(args, 'bucket_region', CloudFormation.DEFAULT_S3_REGION),
         logger=logger,
         stats=stats,
     )
@@ -83,15 +81,17 @@ def get_cloud_formation(args=None, logger=None, stats=None):
         logger=logger,
         stats=stats,
     )
+
     return CloudFormation(
         boto=boto3,
         s3=s3,
+        bucket_name=getattr(args, 'bucket_name', CloudFormation.DEFAULT_S3_BUCKET),
         logger=logger,
         stats=stats,
     )
 
 
-def add_cloud_formation_cli_arguments(parser, include_boto_arguments=True):
+def add_cloud_formation_cli_arguments(parser, include_boto_arguments=True, include_bucket_arguments=True):
     """
     Utility function for adding CloudFormation specific CLI arguments.
     """
@@ -107,6 +107,22 @@ def add_cloud_formation_cli_arguments(parser, include_boto_arguments=True):
     # Add those specific to the application
     group = get_group(parser, NAME)
 
+    if include_bucket_arguments:
+        # If you want to fix the S3 bucket used to upload templates, do not use these arguments
+        group.add_argument(
+            '--bucket-name',
+            type=str,
+            default=CloudFormation.DEFAULT_S3_BUCKET,
+            help='Name of the bucket to upload cloud formation template to (Default: %(default)s)'
+        )
+
+        group.add_argument(
+            '--bucket-region',
+            type=str,
+            default=CloudFormation.DEFAULT_S3_REGION,
+            help='Region of the bucket to upload cloud formation template to (Default: %(default)s)'
+        )
+
 
 class CloudFormation(object):
     """
@@ -114,17 +130,20 @@ class CloudFormation(object):
     Each instance is locked to a connection to a designated region (self.boto.cli_region).
     """
 
-    STACK_NOT_EXIST_ERROR_MSG = 'Stack with id {stack_name} does not exist'
-    NO_UPDATE_ERROR_MSG = 'No updates are to be performed.'
-    _S3_KEY_TEMPLATE = '{name}/{stack_name}-{datestamp}'
-    _DATESTAMP_TEMPLATE = '{year}{month}{date}-{hour}{minute}{second}'
+    DEFAULT_S3_BUCKET = 'krux-temp'
+    DEFAULT_S3_REGION = 'us-east-1'
+
     # S3 link expires after an hour
     _S3_URL_EXPIRY = 3600
+    # Error messages to check
+    _STACK_NOT_EXIST_ERROR_MSG = 'Stack with id {stack_name} does not exist'
+    _NO_UPDATE_ERROR_MSG = 'No updates are to be performed.'
 
     def __init__(
         self,
         boto,
         s3,
+        bucket_name=DEFAULT_S3_BUCKET,
         logger=None,
         stats=None,
     ):
@@ -142,6 +161,7 @@ class CloudFormation(object):
             raise NotImplementedError('Currently krux_cloud_formation.cloud_formation.CloudFormation only supports krux_boto.boto.Boto3')
 
         self._s3 = s3
+        self._bucket_name = bucket_name
 
         self._cf = boto.client('cloudformation')
         self.template = troposphere.Template()
@@ -162,25 +182,14 @@ class CloudFormation(object):
             # The template was successfully retrieved; the stack exists
             return True
         except botocore.exceptions.ClientError as err:
-            if self.STACK_NOT_EXIST_ERROR_MSG.format(stack_name=stack_name) == err.response.get('Error', {}).get('Message', ''):
+            if self._STACK_NOT_EXIST_ERROR_MSG.format(stack_name=stack_name) == err.response.get('Error', {}).get('Message', ''):
                 # The template was not retrieved; the stack does not exists
                 return False
 
             # Unknown error. Raise again.
             raise
 
-    @staticmethod
-    def _get_timestamp(datetime):
-        return CloudFormation._DATESTAMP_TEMPLATE.format(
-            year=datetime.year,
-            month=format(datetime.month, '02'),
-            date=format(datetime.day, '02'),
-            hour=format(datetime.hour, '02'),
-            minute=format(datetime.minute, '02'),
-            second=format(datetime.second, '02'),
-        )
-
-    def save(self, stack_name):
+    def save(self, stack_name, s3_key=None):
         """
         Saves the template to the given Cloud Formation stack.
 
@@ -188,13 +197,10 @@ class CloudFormation(object):
         with the template in this object.
 
         :param stack_name: :py:class:`str` Name of the stack to check
+        :param s3_key: :py:class:`str` Name of the s3 file to be used to upload the template. If set to None, stack_name is used.
         """
-        key = self._S3_KEY_TEMPLATE.format(
-            name=self._name,
-            stack_name=stack_name,
-            datestamp=CloudFormation._get_timestamp(datetime.utcnow()),
-        )
-        s3_file = self._s3.create_key(bucket_name=TEMP_S3_BUCKET, key=key, str_content=self.template.to_json())
+        key = s3_key or stack_name
+        s3_file = self._s3.create_key(bucket_name=self._bucket_name, key=key, str_content=self.template.to_json())
 
         if self._is_stack_exists(stack_name):
             try:
@@ -203,7 +209,7 @@ class CloudFormation(object):
                     TemplateURL=s3_file.generate_url(self._S3_URL_EXPIRY)
                 )
             except botocore.exceptions.ClientError as err:
-                if self.NO_UPDATE_ERROR_MSG == err.response.get('Error', {}).get('Message', ''):
+                if self._NO_UPDATE_ERROR_MSG == err.response.get('Error', {}).get('Message', ''):
                     # Nothing was updated. Ignore this error and move on.
                     return
 
