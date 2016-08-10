@@ -68,6 +68,9 @@ class TroposphereTest(unittest.TestCase):
         self._s3 = MagicMock(
             create_key=MagicMock(
                 return_value=s3_file
+            ),
+            update_key=MagicMock(
+                return_value=s3_file
             )
         )
 
@@ -211,7 +214,7 @@ class TroposphereTest(unittest.TestCase):
 
         with patch('krux_cloud_formation.cloud_formation.CloudFormation._is_stack_exists', MagicMock(return_value=True)):
             self._cfn.save(self.TEST_STACK_NAME)
-            self._s3.create_key.assert_called_once_with(
+            self._s3.update_key.assert_called_once_with(
                 bucket_name=self.S3_BUCKET,
                 key=self.TEST_STACK_NAME,
                 str_content=self._cfn.template.to_json()
