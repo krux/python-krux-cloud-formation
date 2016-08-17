@@ -202,9 +202,9 @@ class CloudFormation(object):
         key = s3_key or stack_name
 
         if self._is_stack_exists(stack_name):
-            try:
-                s3_file = self._s3.update_key(bucket_name=self._bucket_name, key=key, str_content=self.template.to_json())
+            s3_file = self._s3.update_key(bucket_name=self._bucket_name, key=key, str_content=self.template.to_json())
 
+            try:
                 self._cf.update_stack(
                     StackName=stack_name,
                     TemplateURL=s3_file.generate_url(self._S3_URL_EXPIRY)
