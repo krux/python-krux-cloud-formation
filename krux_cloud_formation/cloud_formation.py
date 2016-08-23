@@ -200,9 +200,10 @@ class CloudFormation(object):
         :param s3_key: :py:class:`str` Name of the s3 file to be used to upload the template. If set to None, stack_name is used.
         """
         key = s3_key or stack_name
-        s3_file = self._s3.create_key(bucket_name=self._bucket_name, key=key, str_content=self.template.to_json())
 
         if self._is_stack_exists(stack_name):
+            s3_file = self._s3.update_key(bucket_name=self._bucket_name, key=key, str_content=self.template.to_json())
+
             try:
                 self._cf.update_stack(
                     StackName=stack_name,
@@ -216,6 +217,8 @@ class CloudFormation(object):
                 # Unknown error. Raise again.
                 raise
         else:
+            s3_file = self._s3.create_key(bucket_name=self._bucket_name, key=key, str_content=self.template.to_json())
+
             self._cf.create_stack(
                 StackName=stack_name,
                 TemplateURL=s3_file.generate_url(self._S3_URL_EXPIRY)
