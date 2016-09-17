@@ -199,7 +199,7 @@ class CloudFormation(object):
         :param stack_name: :py:class:`str` Name of the stack to check
         :param s3_key: :py:class:`str` Name of the s3 file to be used to upload the template. If set to None, stack_name is used.
         """
-        key = s3_key or stack_name
+        key = s3_key if s3_key is not None else stack_name
 
         if self._is_stack_exists(stack_name):
             s3_file = self._s3.update_key(bucket_name=self._bucket_name, key=key, str_content=self.template.to_json())
@@ -223,3 +223,14 @@ class CloudFormation(object):
                 StackName=stack_name,
                 TemplateURL=s3_file.generate_url(self._S3_URL_EXPIRY)
             )
+
+    def delete(self, stack_name, s3_key=None):
+        """
+        Deletes the given Cloud Formation stack.
+
+        :param stack_name: :py:class:`str` Name of the stack to delete
+        :param s3_key: :py:class:`str` Name of the s3 file used to update the template. If set to None, stack_name is used.
+        """
+        key = s3_key if s3_key is not None else stack_name
+        self._s3.remove_keys(bucket_name=self._bucket_name, keys=[key])
+        self._cf.delete_stack(StackName=stack_name)
