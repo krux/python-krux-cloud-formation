@@ -1,0 +1,37 @@
+## What does this PR do?
+
+_Describe the effects of your pull request in detail. If multiple
+changes are involved, a bulleted list is often useful._
+
+## Why is this change being made?
+
+_Describe the reasoning and background context for your
+change. Include a link to relevant ticket(s)._
+
+## Where should the reviewer start?
+
+_Give the reviewer a good entry point and/or path through your change
+set which will enable them to understand the logic of the change._
+
+## How was this tested? How can the reviewer verify your testing?
+
+_Describe the steps you used to test your change. Provide evidence of
+testing or explicit, repeatable instructions the reviewer can follow
+to verify your testing._
+
+## What gif best describes this PR or how it makes you feel?
+
+_Insert an appropriate gif/meme to brighten up your reviewer's day._
+
+## Completion checklist
+
+- [ ] The pull request has been appropriately labelled according to
+  our [conventions](https://kruxdigital.jira.com/wiki/display/EN/Changes+and+Peer+Review)
+- [ ] The change has unit & integration tests as appropriate.
+- [ ] Documentation has been updated.
+- [ ] Dependencies have been documented, deployed, and verified as
+      appropriate.
+- [ ] Stakeholders have been notified. Workflow-impacting changes have
+      been appropriately socialized to avoid surprises.
+- [ ] Large or high-impact changes have been canaried in the
+      appropriate environment(s).

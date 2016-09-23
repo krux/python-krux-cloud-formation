@@ -274,3 +274,29 @@ class TroposphereTest(unittest.TestCase):
                     StackName=self.TEST_STACK_NAME,
                     TemplateURL=self.FAKE_URL
                 )
+
+    def test_delete(self):
+        """
+        delete() deletes a stack whether or not it exists
+        """
+        self._cfn.delete(self.TEST_STACK_NAME)
+        self._s3.remove_keys.assert_called_once_with(
+            bucket_name=self.S3_BUCKET,
+            keys=[self.TEST_STACK_NAME],
+        )
+        self._cf.delete_stack.assert_called_once_with(
+            StackName=self.TEST_STACK_NAME,
+        )
+
+    def test_delete_with_key(self):
+        """
+        delete() uses the given string as S3 file name correctly
+        """
+        self._cfn.delete(self.TEST_STACK_NAME, self.S3_FAKE_KEY)
+        self._s3.remove_keys.assert_called_once_with(
+            bucket_name=self.S3_BUCKET,
+            keys=[self.S3_FAKE_KEY],
+        )
+        self._cf.delete_stack.assert_called_once_with(
+            StackName=self.TEST_STACK_NAME,
+        )
