@@ -15,17 +15,16 @@ import unittest
 # Third party libraries
 #
 
-import simplejson
 from troposphere import Template
 from mock import MagicMock, patch
 from botocore.exceptions import ClientError
+from argparse import Namespace
 
 #
 # Internal libraries
 #
 
 from kruxstatsd import StatsClient
-import krux_boto.boto
 import krux_cloud_formation.cloud_formation
 
 
@@ -163,6 +162,44 @@ class GetCloudFormationTest(unittest.TestCase):
             boto=mock_boto3.return_value,
             s3=mock_s3.return_value,
             bucket_name=self.FAKE_BUCKET,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+    @patch('krux_cloud_formation.cloud_formation.Boto3')
+    @patch('krux_cloud_formation.cloud_formation.Boto')
+    @patch('krux_cloud_formation.cloud_formation.S3')
+    @patch('krux_cloud_formation.cloud_formation.CloudFormation')
+    def test_get_boto_without_bucket_args(self, mock_cloud_formation, mock_s3, mock_boto, mock_boto3):
+        """
+        get_cloud_formation correctly uses the defaults when bucket related CLI arguments are not present
+        """
+        # spec attirbute is used so that bucket_region and bucket_name are corrected returned as not existing.
+        # Without this, Mock will automatically return another Mock object for those unspecified attributes,
+        # causing the test to fail.
+        args = MagicMock(
+            spec=Namespace,
+            boto_log_level=self.FAKE_LOG_LEVEL,
+            boto_access_key=self.FAKE_ACCESS_KEY,
+            boto_secret_key=self.FAKE_SECRET_KEY,
+            boto_region=self.FAKE_REGION,
+        )
+
+        krux_cloud_formation.cloud_formation.get_cloud_formation(args, self.logger, self.stats)
+
+        mock_boto.assert_called_once_with(
+            log_level=self.args.boto_log_level,
+            access_key=self.args.boto_access_key,
+            secret_key=self.args.boto_secret_key,
+            region=krux_cloud_formation.cloud_formation.CloudFormation.DEFAULT_S3_REGION,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+        mock_cloud_formation.assert_called_once_with(
+            boto=mock_boto3.return_value,
+            s3=mock_s3.return_value,
+            bucket_name=krux_cloud_formation.cloud_formation.CloudFormation.DEFAULT_S3_BUCKET,
             logger=self.logger,
             stats=self.stats,
         )
