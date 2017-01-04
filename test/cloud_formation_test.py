@@ -29,6 +29,145 @@ import krux_boto.boto
 import krux_cloud_formation.cloud_formation
 
 
+class GetCloudFormationTest(unittest.TestCase):
+    FAKE_LOG_LEVEL = 'critical'
+    FAKE_ACCESS_KEY = 'FAKE_ACCESS_KEY'
+    FAKE_SECRET_KEY = 'FAKE_SECRET_KEY'
+    FAKE_REGION = 'us-gov-west-1'  # This is a region that Krux will never use.
+    FAKE_BUCKET = 'Fake_bucket'
+    FAKE_BUCKET_REGION = 'cn-north-1'  # This is another region that Krux will probably never use.
+
+    _FAKE_COMMAND = [
+        'krux-boto',
+        '--boto-log-level', FAKE_LOG_LEVEL,
+        '--boto-access-key', FAKE_ACCESS_KEY,
+        '--boto-secret-key', FAKE_SECRET_KEY,
+        '--boto-region', FAKE_REGION,
+        '--bucket-name', FAKE_BUCKET,
+        '--bucket-region', FAKE_BUCKET_REGION,
+        '--foo',  # Adding an extra CLI argument to make sure this gets ignored without an error
+    ]
+
+    def setUp(self):
+        self.args = MagicMock(
+            boto_log_level=self.FAKE_LOG_LEVEL,
+            boto_access_key=self.FAKE_ACCESS_KEY,
+            boto_secret_key=self.FAKE_SECRET_KEY,
+            boto_region=self.FAKE_REGION,
+            bucket_name=self.FAKE_BUCKET,
+            bucket_region=self.FAKE_BUCKET_REGION,
+        )
+
+        self.logger = MagicMock()
+        self.stats = MagicMock()
+
+    @patch('krux_cloud_formation.cloud_formation.Boto3')
+    @patch('krux_cloud_formation.cloud_formation.Boto')
+    @patch('krux_cloud_formation.cloud_formation.S3')
+    @patch('krux_cloud_formation.cloud_formation.CloudFormation')
+    def test_get_boto_with_args(self, mock_cloud_formation, mock_s3, mock_boto, mock_boto3):
+        """
+        get_cloud_formation correctly passes the arguments to CloudFormation contructor
+        """
+        krux_cloud_formation.cloud_formation.get_cloud_formation(self.args, self.logger, self.stats)
+
+        mock_boto3.assert_called_once_with(
+            log_level=self.args.boto_log_level,
+            access_key=self.args.boto_access_key,
+            secret_key=self.args.boto_secret_key,
+            region=self.args.boto_region,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+        mock_boto.assert_called_once_with(
+            log_level=self.args.boto_log_level,
+            access_key=self.args.boto_access_key,
+            secret_key=self.args.boto_secret_key,
+            region=self.FAKE_BUCKET_REGION,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+        mock_s3.assert_called_once_with(
+            boto=mock_boto.return_value,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+        mock_cloud_formation.assert_called_once_with(
+            boto=mock_boto3.return_value,
+            s3=mock_s3.return_value,
+            bucket_name=self.FAKE_BUCKET,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+    @patch('sys.argv', _FAKE_COMMAND)
+    @patch('krux_cloud_formation.cloud_formation.get_logger')
+    @patch('krux_cloud_formation.cloud_formation.get_stats')
+    @patch('krux_cloud_formation.cloud_formation.Boto3')
+    @patch('krux_cloud_formation.cloud_formation.Boto')
+    @patch('krux_cloud_formation.cloud_formation.S3')
+    @patch('krux_cloud_formation.cloud_formation.CloudFormation')
+    def test_get_boto_without_args(
+        self,
+        mock_cloud_formation,
+        mock_s3,
+        mock_boto,
+        mock_boto3,
+        mock_get_stats,
+        mock_get_logger
+    ):
+        """
+        get_cloud_formation correctly parses the CLI arguments and pass them to CloudFormation contructor
+        """
+        mock_get_stats.return_value = self.stats
+        mock_get_logger.return_value = self.logger
+
+        krux_cloud_formation.cloud_formation.get_cloud_formation()
+
+        mock_get_logger.assert_called_once_with(
+            name=krux_cloud_formation.cloud_formation.NAME,
+        )
+
+        mock_get_stats.assert_called_once_with(
+            prefix=krux_cloud_formation.cloud_formation.NAME,
+        )
+
+        mock_boto3.assert_called_once_with(
+            log_level=self.args.boto_log_level,
+            access_key=self.args.boto_access_key,
+            secret_key=self.args.boto_secret_key,
+            region=self.args.boto_region,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+        mock_boto.assert_called_once_with(
+            log_level=self.args.boto_log_level,
+            access_key=self.args.boto_access_key,
+            secret_key=self.args.boto_secret_key,
+            region=self.FAKE_BUCKET_REGION,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+        mock_s3.assert_called_once_with(
+            boto=mock_boto.return_value,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+        mock_cloud_formation.assert_called_once_with(
+            boto=mock_boto3.return_value,
+            s3=mock_s3.return_value,
+            bucket_name=self.FAKE_BUCKET,
+            logger=self.logger,
+            stats=self.stats,
+        )
+
+
 class TroposphereTest(unittest.TestCase):
     TEST_STACK_NAME = 'test_stack'
     FAKE_ERROR_RESP = {
