@@ -152,9 +152,12 @@ class CloudFormation(object):
         stats=None,
     ):
         """
-        :param boto: :py:class:`krux_boto.boto.Boto3` Boto3 object used to connect to Cloud Formation
-        :param logger: :py:class:`logging.Logger` Logger, recommended to be obtained using krux.cli.Application
-        :param stats: :py:class:`kruxstatsd.StatsClient` Stats, recommended to be obtained using krux.cli.Application
+        :param boto: Boto3 object used to connect to Cloud Formation
+        :type boto: krux_boto.boto.Boto3
+        :param logger: Logger, recommended to be obtained using krux.cli.Application
+        :type logger: logging.Logger
+        :param stats: Stats, recommended to be obtained using krux.cli.Application
+        :type stats: kruxstatsd.StatsClient
         """
         # Private variables, not to be used outside this module
         self._name = NAME
@@ -162,7 +165,10 @@ class CloudFormation(object):
         self._stats = stats or get_stats(prefix=self._name)
 
         if not isinstance(boto, Boto3):
-            raise NotImplementedError('Currently krux_cloud_formation.cloud_formation.CloudFormation only supports krux_boto.boto.Boto3')
+            raise NotImplementedError(
+                'Currently krux_cloud_formation.cloud_formation.CloudFormation '
+                'only supports krux_boto.boto.Boto3'
+            )
 
         self._s3 = s3
         self._bucket_name = bucket_name
@@ -178,7 +184,8 @@ class CloudFormation(object):
         The template for the stack is fetched and if an expected exception occur (Unable to find stack),
         then the stack is deemed not existing.
 
-        :param stack_name: :py:class:`str` Name of the stack to check
+        :param stack_name: Name of the stack to check
+        :type stack_name: str
         """
         try:
             # See if we can get a template for this
@@ -186,7 +193,8 @@ class CloudFormation(object):
             # The template was successfully retrieved; the stack exists
             return True
         except botocore.exceptions.ClientError as err:
-            if self._STACK_NOT_EXIST_ERROR_MSG.format(stack_name=stack_name) == err.response.get('Error', {}).get('Message', ''):
+            if (self._STACK_NOT_EXIST_ERROR_MSG.format(stack_name=stack_name) ==
+               err.response.get('Error', {}).get('Message', '')):
                 # The template was not retrieved; the stack does not exists
                 return False
 
@@ -200,8 +208,10 @@ class CloudFormation(object):
         The method internally checks whether the stack exists and either creates or updates the stack
         with the template in this object.
 
-        :param stack_name: :py:class:`str` Name of the stack to check
-        :param s3_key: :py:class:`str` Name of the s3 file to be used to upload the template. If set to None, stack_name is used.
+        :param stack_name: Name of the stack to check
+        :type stack_name: str
+        :param s3_key: Name of the s3 file to be used to upload the template. If set to None, stack_name is used.
+        :type s3_key: str
         """
         key = s3_key if s3_key is not None else stack_name
 
@@ -232,8 +242,10 @@ class CloudFormation(object):
         """
         Deletes the given Cloud Formation stack.
 
-        :param stack_name: :py:class:`str` Name of the stack to delete
-        :param s3_key: :py:class:`str` Name of the s3 file used to update the template. If set to None, stack_name is used.
+        :param stack_name: Name of the stack to delete
+        :type stack_name: str
+        :param s3_key: Name of the s3 file used to update the template. If set to None, stack_name is used.
+        :type s3_key: str
         """
         key = s3_key if s3_key is not None else stack_name
         self._s3.remove_keys(bucket_name=self._bucket_name, keys=[key])
